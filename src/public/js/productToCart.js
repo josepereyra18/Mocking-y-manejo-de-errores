@@ -8,7 +8,6 @@ let carritoId
 
   for (let btn of agregarAlCarritoBtn) {
     btn.addEventListener('click', async (e) => {
-      console.log(carritoId)
       if (!carritoId) {
         Swal.fire({
           toast: true,
