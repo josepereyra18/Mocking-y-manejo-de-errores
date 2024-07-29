@@ -35,6 +35,7 @@ const sessionMiddleware = session(
     store: MongoStore.create({ mongoUrl: process.env.MONGO_URL})
 })
 
+app.use(sessionMiddleware)
 
 socketServer.use(sharedSession(sessionMiddleware, {
     autoSave: true
@@ -55,7 +56,7 @@ app.engine('handlebars', handlebars.engine({
   handlebars: allowInsecurePrototypeAccess(Handlebars)
 }));
 
-app.use(sessionMiddleware)
+
 initializepassport();
 app.use(passport.initialize());
 app.use(passport.session());
