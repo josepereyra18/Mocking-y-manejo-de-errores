@@ -1,5 +1,11 @@
-import productsModel from '../../dao/models/products.model.js'
-import cartService from '../service/cartsService.js'
+import cartsService from '../dao/classes/cart.DAO.js'
+import  productsService from '../dao/classes/products.DAO.js'
+import CustomError from '../service/CustomError.js';
+import EErrors from '../service/enums.js';
+import { databaseError } from '../service/info.js'
+
+const  cartService = new cartsService();
+const productService = new productsService();
 
 
 
@@ -16,14 +22,28 @@ export const getCarts =async (req,res) =>{
 export const getCartbyId =async (req, res) =>{
     const cartId = req.params.cid;
     try {
+        if (!isNaN(id)){
+            CustomError.createError({
+                name: "Param incorrecto",
+                cause: routingType(id),
+                message: "tipo de datos Invalido",
+                code: EErrors.ROUTING_ERROR
+            });
+        }
         const cart = await cartService.getCartbyId(cartId);
         if (!cart) {
-            return res.status(404).send({ message: "Carrito no encontrado" });
+            CustomError.createError({
+                name: "Cart not found",
+                cause: databaseError(cartId),
+                message: "Carrito no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
         }
         console.log(JSON.stringify(cart, null, '\t'))
         res.send({result: "success", payload: cart});
     } catch (error) {
-        console.log(error);
+        console.log(error.cause);
+        res.send({status: "error",error: error.message});
     }
 }
 
@@ -37,14 +57,35 @@ export const addProductToCart = async (req,res) =>{
     let { id } = req.params;
     let { pid } = req.params;
     try{
+        if (!isNaN(id) || !isNaN(pid)){
+            CustomError.createError({
+                name: "Param  incorrecto",
+                cause: routingType(id),
+                message: "tipo de datos Invalido",
+                code: EErrors.ROUTING_ERROR
+            });
+        }
+        
+        let producto = await productService.getProductById({_id:pid});
+        let carrito = await cartService.getCartbyId(id);
 
-        let producto = await productsModel.findOne({_id:pid});
-        let carrito = await cartService.getOneCart(id);
-
-        if (!carrito || !producto){
-            return res.status(404).send({ message: "Datos inexistentes" });
+        if (!carrito ){
+            CustomError.createError({
+                name: "Cart not found",
+                cause: databaseError(carrito,id),
+                message: "Carrito no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
         }
 
+        if (!producto){
+            CustomError.createError({
+                name: "Product not found",
+                cause: databaseError(producto, pid),
+                message: "Producto no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
+        }
         if ( await cartService.findProductInCart(id, pid)){
             carrito.products.find(prod => prod.product.toString() === producto._id.toString()).quantity++;
         }else{
@@ -54,8 +95,8 @@ export const addProductToCart = async (req,res) =>{
         let prodAgregado = await cartService.updateCart(id, carrito);
         res.send({result: "success", payload: prodAgregado});
     }catch(error){
-        console.log(error);
-        res.send({message: "No se pudo agregar el producto al carrito"});
+        console.log(error.cause);
+        res.send({status: "error",error: error.message});
     }
 }
 
@@ -65,9 +106,22 @@ export const updateCart = async (req, res)=>{
     let { cid } = req.params;
 
     try{
+        if (!isNaN(id)){
+            CustomError.createError({
+                name: "Param incorrecto",
+                cause: routingType(id),
+                message: "tipo de datos Invalido",
+                code: EErrors.ROUTING_ERROR
+            });
+        }
         let cart = await cartService.findCartById(cid); // find cart by id
         if (!cart){
-            return res.status(404).send({message: "El carrito no existe"});
+            CustomError.createError({
+                name: "Cart not found",
+                cause: databaseError(carrito,cartId),
+                message: "Carrito no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
         }
 
         cart.products = arregloProductos;
@@ -75,8 +129,8 @@ export const updateCart = async (req, res)=>{
         let cartUpdated = await cartService.updateCart(cid, cart); //update cart
         res.send({result: "success", payload: cartUpdated});
     }catch(error){
-        console.log(error);
-        res.send({message: "Existe un error en los datos brindados. No se pudo modificar el carrito"});
+        console.log(error.cause);
+        res.send({status: "error",error: error.message});
     }    
 }
 
@@ -86,13 +140,33 @@ export const updateProductFromCart = async (req, res) =>{
     let { quantity } = req.body;
 
     try {
+
+        if (!isNaN(id) || !isNaN(pid)){
+            CustomError.createError({
+                name: "Param  incorrecto",
+                cause: routingType(id),
+                message: "tipo de datos Invalido",
+                code: EErrors.ROUTING_ERROR
+            });
+        }
+
         let cart = await cartService.findCartById(cid); // fIND CART BY ID
         if (!cart) {
-            return res.status(404).send({ message: "Carrito no encontrado" });
+            CustomError.createError({
+                name: "Cart not found",
+                cause: databaseError(carrito,cartId),
+                message: "Carrito no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
         }
         let producto = cart.products.find(prod => prod.product.toString() === pid);
         if (producto === undefined) {
-            return res.status(404).send({ message: "Producto no encontrado en el carrito" });
+            CustomError.createError({
+                name: "Product not found",
+                cause: databaseError(producto, pid),
+                message: "Producto no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
         }
         producto.quantity = quantity;
 
@@ -100,8 +174,8 @@ export const updateProductFromCart = async (req, res) =>{
 
         res.send({ result: "success", payload: cartUpdated });
     } catch (error) {
-        console.log(error);
-        res.send({ message: "No se pudo actualizar la cantidad del producto en el carrito" });
+        console.log(error.cause);
+        res.send({status: "error",error: error.message});
     }
 }
 
@@ -111,11 +185,36 @@ export const deleteProductFromCart = async (req, res) =>{
     let { pid } = req.params;
     let prodAgregado;
     try{
-        let carrito = await cartService.getOneCart(id);
-        let producto = await productsModel.findOne({_id: pid});
-        if (!carrito || !producto){
-            return res.status(404).send({ message: "Datos inexistentes" });
+
+        if (!isNaN(id) || !isNaN(pid)){
+            CustomError.createError({
+                name: "Param  incorrecto",
+                cause: routingType(id),
+                message: "tipo de datos Invalido",
+                code: EErrors.ROUTING_ERROR
+            });
         }
+
+        let carrito = await cartService.getCartbyId(id);
+        let producto = await productService.findOne({_id: pid});
+        if (!carrito ){
+            CustomError.createError({
+                name: "Cart not found",
+                cause: databaseError(carrito,cartId),
+                message: "Carrito no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
+        }
+
+        if (!producto){
+            CustomError.createError({
+                name: "Product not found",
+                cause: databaseError(producto, pid),
+                message: "Producto no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
+        }
+
         if (carrito.products.find(prod => prod.product.toString() === producto._id.toString()).quantity > 1){
             carrito.products.find(prod => prod.product.toString() === producto._id.toString()).quantity--;
             prodAgregado = await cartService.updateCart(id, carrito);
@@ -125,8 +224,8 @@ export const deleteProductFromCart = async (req, res) =>{
         
         res.send({result: "success", payload: prodAgregado});
     }catch(error){
-        console.log(error);
-        res.send({message: "No se pudo eliminar el producto del carrito"});
+        console.log(error.cause);
+        res.send({status: "error",error: error.message});
     }
 }
 
@@ -134,17 +233,32 @@ export const deleteProductFromCart = async (req, res) =>{
 export const deleteAllProductsFromCart = async (req, res) =>{
     let { id } = req.params;
     try{
-        let carrito = await cartService.getOneCart(id);
-        if (!carrito){
-            return res.status(404).send({ message: "Carrito no encontrado" });
+
+        if (!isNaN(id) ){
+            CustomError.createError({
+                name: "Param  incorrecto",
+                cause: routingType(id),
+                message: "tipo de datos Invalido",
+                code: EErrors.ROUTING_ERROR
+            });
+        }
+        
+        let carrito = await cartService.getCartbyId(id);
+        if (!carrito ){
+            CustomError.createError({
+                name: "Cart not found",
+                cause: databaseError(carrito,cartId),
+                message: "Carrito no encontrado",
+                code: EErrors.DATABASE_ERROR
+            });
         }
         carrito.products = [];
         let prodEliminado = await cartService.updateCart(id, carrito);
 
         res.send({result: "success", payload: prodEliminado});
     }catch(error){
-        console.log(error);
-        res.send({message: "No se pudo eliminar el producto del carrito"});
+        console.log(error.cause);
+        res.send({status: "error",error: error.message});
     }
 }
 

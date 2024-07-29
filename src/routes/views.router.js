@@ -1,7 +1,7 @@
 import express from 'express';
 const router = express.Router();
 import { isAuthenticated, isNotAuthenticated } from '../middlewares/auth.js';
-import productsModel from '../../dao/models/products.model.js';
+import productsModel from '../dao/models/products.model.js';
 
 
 router.get('/',(req, res) => {

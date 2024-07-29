@@ -1,1 +1,0 @@
-Hola Josefina, como estas? por lo que veo faltarían crear las capas de controladores y servicios para poder aprobar el desafio. Cualquier duda o problema que tengas para resolverlo no dudes en consultarme y lo resolvemos!

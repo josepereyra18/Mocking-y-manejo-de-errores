@@ -2,14 +2,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import __dirname from './utils.js';
+import handleError from './middlewares/errors/index.js';
 import handlebars from 'express-handlebars';
 import viewsRouter from './routes/views.router.js';
 import { Server } from 'socket.io';
 import productsRouter from './routes/api/products.route.js'
 import cartRouter from './routes//api/carts.route.js'
 import mongoose from 'mongoose';
-import productsModel from '../dao/models/products.model.js'
-import cartModel from '../dao/models/cart.model.js';
+import productsModel from './dao/models/products.model.js'
+import cartModel from './dao/models/cart.model.js';
 import Handlebars from 'handlebars';
 import { allowInsecurePrototypeAccess } from '@handlebars/allow-prototype-access';
 import sessionRouter from './routes/api/session.router.js';
@@ -18,6 +19,7 @@ import session from 'express-session';
 import passport from 'passport';
 import initializepassport from './middlewares/passport.config.js';
 import sharedSession from 'express-socket.io-session';
+
 
 
 const app = express();
@@ -33,25 +35,27 @@ const sessionMiddleware = session(
     store: MongoStore.create({ mongoUrl: process.env.MONGO_URL})
 })
 
-app.use(sessionMiddleware)
-
 
 socketServer.use(sharedSession(sessionMiddleware, {
     autoSave: true
 }));
 
 mongoose.connect(process.env.MONGO_URL).then(
-    () => {console.log('Conectado a la base de datos')}).catch(error => console.log("error en la conexion ", error))
+    () => {
+        console.log('Conectado a la base de datos')
+    }).catch(error => 
+        console.log("error en la conexion ", error))
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(handleError);
 
 app.engine('handlebars', handlebars.engine({
   handlebars: allowInsecurePrototypeAccess(Handlebars)
 }));
 
-
+app.use(sessionMiddleware)
 initializepassport();
 app.use(passport.initialize());
 app.use(passport.session());
@@ -64,6 +68,7 @@ app.use('/api', productsRouter);
 app.use('/api', cartRouter);
 app.use('/api/session', sessionRouter);
 app.use('/', viewsRouter);
+
 
 
 socketServer.on('connection', async socket => {
@@ -91,5 +96,7 @@ socketServer.on('connection', async socket => {
         await cartModel.updateOne({_id:cartId}, carrito);
         socket.emit('productoAgregado', producto);
     })
+
+    
     
 })
